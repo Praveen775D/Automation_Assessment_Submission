@@ -1,0 +1,18 @@
+# Secrets / local environment
+.env
+*.secret
+credentials*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node / n8n local data
+node_modules/
+.n8n/
+
+# Generated local recordings
+*.mp4
+*.webm

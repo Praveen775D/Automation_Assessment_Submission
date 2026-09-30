@@ -1,0 +1,94 @@
+{
+  "name": "Bonus - RealWorld Uptime Monitor",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 5}]}},
+      "id": "1",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://demo.realworld.show",
+        "options": {
+          "response": {"response": {"fullResponse": true}}
+        }
+      },
+      "id": "2",
+      "name": "Ping Web App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300],
+      "retryOnFail": true,
+      "maxAttempts": 3,
+      "waitBetweenAttempts": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const status = Number($json.statusCode || $json.status || 0);\nconst start = Date.now();\nreturn [{ json: { statusCode: status, ok: status === 200, target: 'https://demo.realworld.show', checkedAt: new Date().toISOString(), note: status === 200 ? 'HTTP 200' : `Unexpected HTTP status: ${status}` } }];"
+      },
+      "id": "3",
+      "name": "Evaluate Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [{"id": "not-200", "leftValue": "={{ $json.statusCode }}", "rightValue": 200, "operator": {"type": "number", "operation": "notEquals"}}],
+          "combinator": "and"
+        }
+      },
+      "id": "4",
+      "name": "IF Status Is Not 200",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { text: `🚨 Uptime alert\\nTarget: ${$json.target}\\nHTTP status: ${$json.statusCode}\\nChecked: ${$json.checkedAt}` } }];"
+      },
+      "id": "5",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 220]
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {"__rl": true, "mode": "name", "value": "#morning-brief"},
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "6",
+      "name": "Send Alert to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [1210, 220],
+      "credentials": {"slackApi": {"id": "", "name": "Slack API"}}
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {"main": [[{"node": "Ping Web App", "type": "main", "index": 0}]]},
+    "Ping Web App": {"main": [[{"node": "Evaluate Status", "type": "main", "index": 0}]]},
+    "Evaluate Status": {"main": [[{"node": "IF Status Is Not 200", "type": "main", "index": 0}]]},
+    "IF Status Is Not 200": {"main": [[{"node": "Build Alert", "type": "main", "index": 0}], []]},
+    "Build Alert": {"main": [[{"node": "Send Alert to Slack", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "bonus-uptime-v1",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
